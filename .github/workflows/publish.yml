@@ -1,0 +1,39 @@
+name: publish-queue
+
+# queue/*.json 예약 게시물을 시각이 되면 Instagram에 올린다 (PC가 꺼져 있어도 됨)
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "확인만 (게시하지 않음)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-queue
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests
+      - name: 예약 게시
+        env:
+          IG_TOKEN_GLOBAL: ${{ secrets.IG_TOKEN_GLOBAL }}
+          IG_TOKEN_THAILAND: ${{ secrets.IG_TOKEN_THAILAND }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        run: |
+          git config user.name "sylee-cell"
+          git config user.email "299901158+sylee-cell@users.noreply.github.com"
+          python scheduler/cloud_publish.py
