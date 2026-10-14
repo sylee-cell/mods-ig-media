@@ -1,7 +1,7 @@
 """GitHub Actions에서 queue/*.json 예약 게시물을 시각이 되면 Instagram에 올린다.
 
 예약 파일은 MODS 공유 드라이브의 05_인스타발행/ig_publish.py schedule 이 만든다.
-  {"id", "account": "global|thailand", "type": "feed|story", "publish_at": UTC ISO, "image_urls": [...],
+  {"id", "account": "global|thailand", "type": "feed|story|reel", "publish_at": UTC ISO, "image_urls": [...],
    "caption", "folder", "status": "pending|publishing|done|failed", ...}
 토큰은 저장소 Secrets IG_TOKEN_GLOBAL · IG_TOKEN_THAILAND.
 DRY_RUN=true 면 토큰·이미지 주소만 확인하고 게시하지 않는다.
@@ -44,8 +44,8 @@ def me(acct):
     return m
 
 
-def wait_ready(acct, cid):
-    for _ in range(100):
+def wait_ready(acct, cid, tries=100):
+    for _ in range(tries):
         s = call(acct, "GET", cid, fields="status_code,status")
         if s["status_code"] == "FINISHED":
             return
@@ -58,6 +58,14 @@ def wait_ready(acct, cid):
 def publish(item):
     acct, urls, caption = item["account"], item["image_urls"], item["caption"]
     uid = me(acct)["user_id"]
+    if item.get("type") == "reel":  # image_urls = [영상, (커버)]
+        params = dict(media_type="REELS", video_url=urls[0], caption=caption, share_to_feed="true")
+        if len(urls) > 1:
+            params["cover_url"] = urls[1]
+        cid = call(acct, "POST", f"{uid}/media", **params)["id"]
+        wait_ready(acct, cid, tries=200)  # 영상 처리는 몇 분 걸린다
+        mid = call(acct, "POST", f"{uid}/media_publish", creation_id=cid)["id"]
+        return call(acct, "GET", mid, fields="permalink").get("permalink")
     if item.get("type") == "story":  # 스토리는 한 장씩 따로 게시
         links = []
         for u in urls:
