@@ -3,7 +3,8 @@ name: publish-queue
 # queue/*.json 예약 게시물을 시각이 되면 Instagram에 올린다 (PC가 꺼져 있어도 됨)
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    # 정각(:00) 무렵은 GitHub이 붐벼 늦거나 건너뛰기 쉬워 3분씩 비켜 둔다
+    - cron: "3,13,23,33,43,53 * * * *"
   workflow_dispatch:
     inputs:
       dry_run:
