@@ -1,7 +1,7 @@
 """GitHub Actions에서 queue/*.json 예약 게시물을 시각이 되면 Instagram에 올린다.
 
 예약 파일은 MODS 공유 드라이브의 05_인스타발행/ig_publish.py schedule 이 만든다.
-  {"id", "account": "global|thailand", "publish_at": UTC ISO, "image_urls": [...],
+  {"id", "account": "global|thailand", "type": "feed|story", "publish_at": UTC ISO, "image_urls": [...],
    "caption", "folder", "status": "pending|publishing|done|failed", ...}
 토큰은 저장소 Secrets IG_TOKEN_GLOBAL · IG_TOKEN_THAILAND.
 DRY_RUN=true 면 토큰·이미지 주소만 확인하고 게시하지 않는다.
@@ -58,6 +58,14 @@ def wait_ready(acct, cid):
 def publish(item):
     acct, urls, caption = item["account"], item["image_urls"], item["caption"]
     uid = me(acct)["user_id"]
+    if item.get("type") == "story":  # 스토리는 한 장씩 따로 게시
+        links = []
+        for u in urls:
+            cid = call(acct, "POST", f"{uid}/media", image_url=u, media_type="STORIES")["id"]
+            wait_ready(acct, cid)
+            mid = call(acct, "POST", f"{uid}/media_publish", creation_id=cid)["id"]
+            links.append(call(acct, "GET", mid, fields="permalink").get("permalink") or f"story id {mid}")
+        return " · ".join(links)
     if len(urls) == 1:
         cid = call(acct, "POST", f"{uid}/media", image_url=urls[0], caption=caption)["id"]
     else:
