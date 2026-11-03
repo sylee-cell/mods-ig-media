@@ -79,8 +79,12 @@ def publish(item):
     else:
         kids = []
         for u in urls:
-            k = call(acct, "POST", f"{uid}/media", image_url=u, is_carousel_item="true")["id"]
-            wait_ready(acct, k)
+            if u.endswith((".mp4", ".mov")):  # 캐러셀 안 영상 장
+                k = call(acct, "POST", f"{uid}/media", media_type="VIDEO", video_url=u, is_carousel_item="true")["id"]
+                wait_ready(acct, k, tries=200)
+            else:
+                k = call(acct, "POST", f"{uid}/media", image_url=u, is_carousel_item="true")["id"]
+                wait_ready(acct, k)
             kids.append(k)
         cid = call(acct, "POST", f"{uid}/media", media_type="CAROUSEL",
                    children=",".join(kids), caption=caption)["id"]
